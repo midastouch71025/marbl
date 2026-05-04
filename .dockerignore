@@ -1,0 +1,10 @@
+.git
+bin
+coverage.out
+coverage.html
+*.pgo
+default.pgo
+.idea
+.vscode
+*.log
+logs

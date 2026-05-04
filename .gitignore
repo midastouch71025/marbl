@@ -1,0 +1,14 @@
+/bin/
+/coverage.out
+/coverage.html
+*.pprof
+*.out
+cpu.pprof
+heap.pprof
+trace.out
+flamegraph.svg
+heap-flame.svg
+heap.png
+default.pgo
+cmd/**/default.pgo
+*.env

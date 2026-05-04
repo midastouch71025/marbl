@@ -1,0 +1,111 @@
+# Host publish ports (override in `.env` next to this file; defaults avoid common clashes):
+# MARBL_POSTGRES_HOST_PORT MARBL_PROMETHEUS_HOST_PORT MARBL_GRAFANA_HOST_PORT
+# MARBL_CONSUMER_HTTP_HOST_PORT MARBL_PRODUCER_METRICS_HOST_PORT MARBL_PRODUCER_PPROF_HOST_PORT
+# MARBL_CONSUMER_METRICS_HOST_PORT MARBL_CONSUMER_PPROF_HOST_PORT
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: [infra, all]
+    environment:
+      POSTGRES_USER: marbl
+      POSTGRES_PASSWORD: marbl
+      POSTGRES_DB: marbl
+    # Host port: default 15432 avoids clash with a local Postgres on 5432.
+    # Override: set MARBL_POSTGRES_HOST_PORT=5432 in `.env` (or export) if that port is free.
+    ports:
+      - "${MARBL_POSTGRES_HOST_PORT:-15432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marbl -d marbl"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    profiles: [infra, all]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "${MARBL_PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: [infra, all]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+    ports:
+      - "${MARBL_GRAFANA_HOST_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  producer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: producer
+      args:
+        VERSION: ${VERSION:-dev}
+        PGO_PROFILE: ${PGO_PROFILE:-}
+    profiles: [producer, all]
+    environment:
+      DATABASE_URL: postgres://marbl:marbl@postgres:5432/marbl?sslmode=disable
+      CONSUMER_URL: http://consumer:8080
+      PROMETHEUS_PORT: "9091"
+      PPROF_PORT: "6060"
+    ports:
+      - "${MARBL_PRODUCER_METRICS_HOST_PORT:-9091}:9091"
+      - "${MARBL_PRODUCER_PPROF_HOST_PORT:-6060}:6060"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: consumer
+      args:
+        VERSION: ${VERSION:-dev}
+        PGO_PROFILE: ${PGO_PROFILE:-}
+    profiles: [consumer, all]
+    environment:
+      DATABASE_URL: postgres://marbl:marbl@postgres:5432/marbl?sslmode=disable
+      LISTEN_ADDR: ":8080"
+      PROMETHEUS_PORT: "9092"
+      PPROF_PORT: "6061"
+    ports:
+      - "${MARBL_CONSUMER_HTTP_HOST_PORT:-8080}:8080"
+      - "${MARBL_CONSUMER_METRICS_HOST_PORT:-9092}:9092"
+      - "${MARBL_CONSUMER_PPROF_HOST_PORT:-6061}:6061"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+      args:
+        VERSION: ${VERSION:-dev}
+        PGO_PROFILE: ${PGO_PROFILE:-}
+    profiles: [tooling]
+    environment:
+      DATABASE_URL: postgres://marbl:marbl@postgres:5432/marbl?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  grafana_data:
