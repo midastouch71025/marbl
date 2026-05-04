@@ -136,6 +136,7 @@ class StaticAcceptanceTests(unittest.TestCase):
             "sqlc",
             "migrate-up",
             "migrate-down",
+            "migrate-down-all",
             "migrate-status",
             "profile-cpu",
             "profile-heap",
