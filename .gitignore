@@ -12,3 +12,6 @@ heap.png
 default.pgo
 cmd/**/default.pgo
 *.env
+.codex
+__pycache__/
+*.pyc
