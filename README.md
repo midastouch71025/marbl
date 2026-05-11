@@ -231,6 +231,20 @@ go tool trace trace.out
 - **Consumer HTTP** path is single-process in this layout; add replicas behind a load balancer and sticky-less idempotent handlers (already directionally required by Plan.md).
 - **Prometheus** default 5s scrape is fine for demos; high cardinality labels (per-task IDs) must be avoided.
 
+## CI/CD
+
+- **CI** (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`: `go vet`, race-enabled `go test`, `make build`, and `make compose-config`.
+- **CD** (`.github/workflows/cd.yml`) runs on version tags (`v*`) and manual dispatch, then builds/pushes `producer`, `consumer`, and `migrate` images to GHCR:
+  - `ghcr.io/<owner>/marbl-producer`
+  - `ghcr.io/<owner>/marbl-consumer`
+  - `ghcr.io/<owner>/marbl-migrate`
+- Tag a release to publish images:
+
+  ```bash
+  git tag v0.1.0
+  git push origin v0.1.0
+  ```
+
 ## Repository layout (ops-focused)
 
 ```
